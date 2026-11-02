@@ -1,4 +1,4 @@
-name: Build and Upload PublicComputeServices
+name: Build Android APK
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  build:
-    name: Build and Package Python Service
+  build-apk:
+    name: Build APK with Buildozer
     runs-on: ubuntu-latest
 
     steps:
@@ -20,20 +20,43 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Dependencies
+      # Buildozer dependencies (Java, Cython, Android SDK/NDK prerequisites)
+      - name: Install System Dependencies
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          sudo apt-get update
+          sudo apt-get install -y \
+            python-dev-is-python3 \
+            libltdl-dev \
+            libffi-dev \
+            libssl-dev \
+            zlib1g-dev \
+            openjdk-17-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            ant \
+            maven \
+            git
 
-      - name: Build Package / Artifacts
+      - name: Install Buildozer and Cython
         run: |
-          mkdir -p dist/
-          # Bundle the core source files into a tarball artifact directory safely
-          tar -czvf dist/public-compute-services-build.tar.gz --exclude='.git' --exclude='dist' .
+          pip install --upgrade pip
+          pip install --upgrade cython buildozer
 
-      - name: Upload Build Artifact
+      - name: Initialize Buildozer Spec (if missing)
+        run: |
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
+          fi
+
+      - name: Build APK
+        run: |
+          # Run buildozer to generate the APK (debug mode)
+          buildozer -v android debug
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: service-build-artifact
-          path: dist/
+          name: android-apk
+          path: bin/*.apk
           retention-days: 30
