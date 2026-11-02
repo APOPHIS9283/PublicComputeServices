@@ -1,46 +1,63 @@
-name: Build Xposed Module
+name: Build APK with Buildozer
 
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch: # Allows manual triggering from the Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          python-version: '3.10'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Inject Secrets / Properties (if required)
-        # If your build pipeline relies on secrets like MANIFEST_KEY, 
-        # you can write them into properties files dynamically like this:
+      - name: Install System Dependencies
         run: |
-          if [ -n "${{ secrets.MANIFEST_KEY }}" ]; then
-            echo "MANIFEST_KEY=${{ secrets.MANIFEST_KEY }}" >> app/sekret.properties
-          fi
-        shell: bash
+          sudo dpkg --add-architecture i386
+          
+          # Add focal-security source for older compatibility libraries like libncurses5:i386
+          echo "deb http://security.ubuntu.com/ubuntu focal-security main universe" | sudo tee /etc/apt/sources.list.d/focal.list
+          
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            ccache \
+            libncurses5:i386 \
+            libstdc++6:i386 \
+            libz1:i386 \
+            zlib1g-dev \
+            openjdk-17-jdk \
+            unzip \
+            zip
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug
+      - name: Install Buildozer and Cython
+        run: |
+          pip install --upgrade pip
+          pip install --upgrade cython==0.29.36
+          pip install --upgrade buildozer
+
+      - name: Initialize Buildozer Spec (if missing)
+        run: |
+          if [ ! -f "buildozer.spec" ]; then
+            buildozer init
+          fi
+
+      - name: Build APK
+        run: |
+          buildozer -v android debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: public-compute-services-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: package-release-apk
+          path: bin/*.apk
