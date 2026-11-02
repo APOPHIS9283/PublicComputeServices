@@ -1,4 +1,4 @@
-name: Build and Upload PublicComputeServices
+name: Build Android APK
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  build:
-    name: Build and Package Python Service
+  build-apk:
+    name: Build APK with Buildozer
     runs-on: ubuntu-latest
 
     steps:
@@ -19,39 +19,47 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
-      - name: Install Dependencies
+      - name: Install System Dependencies
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y \
+            python-dev-is-python3 \
+            libltdl-dev \
+            libffi-dev \
+            libssl-dev \
+            zlib1g-dev \
+            openjdk-17-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            ant \
+            maven \
+            git \
+            unzip \
+            libncurses5:i386 \
+            libstdc++6:i386 \
+            libz1:i386
+
+      - name: Install Buildozer and Cython
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Install build tools if your project uses setup.py / pyproject.toml
-          if [ -f pyproject.toml ] || [ -f setup.py ]; then pip install build; fi
+          python -m pip install --upgrade cython buildozer
 
-      - name: Run Tests
+      - name: Initialize Buildozer Spec
         run: |
-          # Automatically runs pytest if tests directory exists, or skips safely
-          if [ -d "tests" ]; then
-            pip install pytest
-            pytest
-          else
-            echo "No tests directory found, skipping tests."
+          if [ ! -f buildozer.spec ]; then
+            buildozer init
           fi
 
-      - name: Build Package / Artifacts
+      - name: Build APK
         run: |
-          mkdir -p dist/
-          # If using modern python packaging (pyproject.toml / setup.py)
-          if [ -f pyproject.toml ] || [ -f setup.py ]; then
-            python -m build
-          else
-            # Fallback: bundle the core source files into a zip/tarball artifact directory
-            tar -czvf dist/public-compute-services-build.tar.gz --exclude='.git' --exclude='dist' .
-          fi
+          buildozer -v android debug
 
-      - name: Upload Build Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: service-build-artifact
-          path: dist/
+          name: android-apk
+          path: bin/*.apk
           retention-days: 30
