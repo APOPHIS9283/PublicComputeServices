@@ -1,4 +1,4 @@
-name: Build APK with Buildozer
+name: Build Android Xposed Module
 
 on:
   push:
@@ -15,54 +15,23 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          python-version: '3.10'
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Install System Dependencies
-        run: |
-          sudo dpkg --add-architecture i386
-          echo "deb http://security.ubuntu.com/ubuntu focal-security main universe" | sudo tee /etc/apt/sources.list.d/focal.list
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            git \
-            ccache \
-            libncurses5:i386 \
-            libstdc++6:i386 \
-            libz1:i386 \
-            zlib1g-dev \
-            openjdk-17-jdk \
-            unzip \
-            zip
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-      - name: Install Buildozer and Cython
-        run: |
-          pip install --upgrade pip
-          pip install --upgrade cython==0.29.36
-          pip install --upgrade buildozer
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-      - name: Initialize Buildozer Spec (if missing)
-        run: |
-          if [ ! -f "buildozer.spec" ]; then
-            buildozer init
-          fi
-
-      - name: Accept Android SDK Licenses
-        run: |
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-          # Automatically accept SDK licenses by piping yes into sdkmanager if available, or pre-accepting via buildozer config
-          yes | buildozer android pgsdk || true
-
-      - name: Build APK
-        run: |
-          # Use yes to accept any lingering interactive prompts during build tool installation
-          yes | buildozer -v android debug
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: package-release-apk
-          path: bin/*.apk
+          name: public-compute-services-debug
+          path: app/build/outputs/apk/debug/*.apk
