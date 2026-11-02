@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APK with Sekret Generation
+    name: Build APK with Gradle
     runs-on: ubuntu-latest
 
     steps:
@@ -26,7 +26,7 @@ jobs:
 
       - name: Generate Sekret Module
         run: ./gradlew generateSekret
-        continue-on-error: true # Allows it to proceed or fallback if keys are missing
+        continue-on-error: true
 
       - name: Build Debug APK with Gradle
         run: ./gradlew assembleDebug
