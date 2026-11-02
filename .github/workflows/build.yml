@@ -38,9 +38,9 @@ jobs:
             maven \
             git \
             unzip \
-            libncurses5:i386 \
             libstdc++6:i386 \
-            libz1:i386
+            libz1:i386 \
+            libncurses6:i386 || sudo apt-get install -y libncurses5 || true
 
       - name: Install Buildozer and Cython
         run: |
