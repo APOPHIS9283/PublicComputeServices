@@ -1,7 +1,5 @@
 import com.google.protobuf.gradle.id
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import java.io.FileInputStream
-import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -10,29 +8,8 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.sekret)
     alias(libs.plugins.aboutLibraries)
-    alias(libs.plugins.parcelize)
+    alias(libs.plugins.parcelize}
 }
-
-private fun getLocalProperties(): Properties? {
-    var properties: Properties? = Properties()
-    properties?.setProperty("keyAlias", "")
-    properties?.setProperty("keyPassword", "")
-    properties?.setProperty("storeFile", "")
-    properties?.setProperty("storePassword", "")
-    properties?.setProperty("keyHash", "")
-    try {
-        val propertiesFile = rootProject.file("local.properties")
-        if (propertiesFile.exists()) {
-            properties?.load(FileInputStream(propertiesFile))
-        }
-    } catch (ignored: Exception) {
-        properties = null
-        println("Unable to read properties")
-    }
-    return properties
-}
-
-val currentLocalProperties = getLocalProperties()
 
 val tagName = "1.0.6"
 val tagCode = 106
@@ -56,26 +33,14 @@ android {
         buildConfigField("String", "TAG_NAME", "\"${tagName}\"")
     }
 
-    signingConfigs {
-        create("release") {
-            if (currentLocalProperties != null) {
-                storeFile = file(currentLocalProperties.getProperty("storeFile"))
-                storePassword = currentLocalProperties.getProperty("storePassword")
-                keyAlias = currentLocalProperties.getProperty("keyAlias")
-                keyPassword = currentLocalProperties.getProperty("keyPassword")
-            }
-        }
-    }
-
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("release")
+            // Uses default debug keystore automatically
         }
         release {
-            //Minify is enabled but obfuscation is disabled
+            // Minify is enabled but obfuscation is disabled
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -101,7 +66,7 @@ android {
 
     sourceSets {
         getByName("main") {
-            //Only the official sekret binary is packaged, the locally built one is not used
+            // Only the official sekret binary is packaged, the locally built one is not used
             jniLibs.setSrcDirs(listOf("src/main/jniLibs-official"))
         }
     }
@@ -114,7 +79,7 @@ androidComponents {
         variant.packaging.jniLibs.excludes.add("/lib/x86_64/*.so")
     }
     onVariants { variant ->
-        //The official sekret binary is packaged as-is, stripping would alter it
+        // The official sekret binary is packaged as-is, stripping would alter it
         variant.packaging.jniLibs.keepDebugSymbols.add("**/libsekret.so")
     }
 }
@@ -123,11 +88,11 @@ sekret {
     properties {
         enabled.set(true)
         packageName.set("com.kieronquinn.app.pcs.sekret")
-        encryptionKey.set(currentLocalProperties!!.getProperty("keyHash"))
+        encryptionKey.set("")
     }
 }
 
-//The packaged sekret binary comes from the official release, don't regenerate or overwrite it
+// The packaged sekret binary comes from the official release, don't regenerate or overwrite it
 tasks.matching {
     it.name in listOf(
         "createSekretNativeBinary",
@@ -212,5 +177,4 @@ dependencies {
     implementation(libs.aboutlibraries.compose.m3)
     implementation(libs.markwon)
     implementation(libs.markwon.tables)
-
 }
