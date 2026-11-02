@@ -54,8 +54,12 @@ jobs:
           fi
 
       - name: Build APK
+        env:
+          # Automatically accept Android SDK licenses to prevent blocks
+          BUILDER_ACCEPT_LICENSES: "1"
         run: |
-          buildozer -v android debug
+          # Force accept licenses via yes command piped to buildozer if needed
+          yes | buildozer -v android debug || buildozer -v android debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
