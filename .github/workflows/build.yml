@@ -27,6 +27,14 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Create missing sekret module directory
+        run: |
+          mkdir -p app/sekret
+          if [ ! -f "app/sekret/build.gradle.kts" ] && [ ! -f "app/sekret/build.gradle" ]; then
+            echo 'plugins { id("com.android.library") }' > app/sekret/build.gradle.kts
+          fi
+        shell: bash
+
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
