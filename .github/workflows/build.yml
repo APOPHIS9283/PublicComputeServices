@@ -23,10 +23,7 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo dpkg --add-architecture i386
-          
-          # Add focal-security source for older compatibility libraries like libncurses5:i386
           echo "deb http://security.ubuntu.com/ubuntu focal-security main universe" | sudo tee /etc/apt/sources.list.d/focal.list
-          
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
@@ -52,9 +49,17 @@ jobs:
             buildozer init
           fi
 
+      - name: Accept Android SDK Licenses
+        run: |
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
+          # Automatically accept SDK licenses by piping yes into sdkmanager if available, or pre-accepting via buildozer config
+          yes | buildozer android pgsdk || true
+
       - name: Build APK
         run: |
-          buildozer -v android debug
+          # Use yes to accept any lingering interactive prompts during build tool installation
+          yes | buildozer -v android debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
