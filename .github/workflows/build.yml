@@ -38,6 +38,7 @@ jobs:
           }
           android {
               compileSdk = 36
+              namespace = "com.kieronquinn.app.pcs.sekret"
               defaultConfig {
                   minSdk = 34
               }
