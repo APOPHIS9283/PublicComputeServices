@@ -1,0 +1,57 @@
+name: Build and Upload PublicComputeServices
+
+on:
+  push:
+    branches: [ "main", "master", "dev" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    name: Build and Package Python Service
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Install build tools if your project uses setup.py / pyproject.toml
+          if [ -f pyproject.toml ] || [ -f setup.py ]; then pip install build; fi
+
+      - name: Run Tests
+        run: |
+          # Automatically runs pytest if tests directory exists, or skips safely
+          if [ -d "tests" ]; then
+            pip install pytest
+            pytest
+          else
+            echo "No tests directory found, skipping tests."
+          fi
+
+      - name: Build Package / Artifacts
+        run: |
+          mkdir -p dist/
+          # If using modern python packaging (pyproject.toml / setup.py)
+          if [ -f pyproject.toml ] || [ -f setup.py ]; then
+            python -m build
+          else
+            # Fallback: bundle the core source files into a zip/tarball artifact directory
+            tar -czvf dist/public-compute-services-build.tar.gz --exclude='.git' --exclude='dist' .
+          fi
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-build-artifact
+          path: dist/
+          retention-days: 30
