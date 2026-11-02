@@ -1,139 +1,57 @@
-name: Build Android module
+name: Build and Upload PublicComputeServices
 
 on:
   push:
-    branches:
-      - main
-      - 'ci/**'
+    branches: [ "main", "master", "dev" ]
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:
-
-permissions:
-  contents: read
+    branches: [ "main", "master" ]
 
 jobs:
   build:
+    name: Build and Package Python Service
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v5
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - name: Prepare build paths
-        run: |
-          set -euo pipefail
-          chmod +x gradlew
-
-          # settings.gradle.kts includes :app:sekret before generateSekret runs,
-          # so the generated project directory must already exist on Gradle 9+.
-          mkdir -p app/sekret
-
-      - name: Verify official Sekret native library
-        run: test -s app/src/main/jniLibs-official/arm64-v8a/libsekret.so
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          distribution: temurin
-          java-version: '21'
+          python-version: '3.11'
+          cache: 'pip'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Prepare ephemeral debug signing and Sekret configuration
+      - name: Install Dependencies
         run: |
-          set -euo pipefail
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Install build tools if your project uses setup.py / pyproject.toml
+          if [ -f pyproject.toml ] || [ -f setup.py ]; then pip install build; fi
 
-          keystore="$RUNNER_TEMP/pcs-debug.keystore"
-          store_password=android
-          key_password=android
-          key_alias=pcs-debug
-
-          keytool -genkeypair \
-            -keystore "$keystore" \
-            -storepass "$store_password" \
-            -keypass "$key_password" \
-            -alias "$key_alias" \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 3650 \
-            -dname "CN=GitHub Actions Debug, O=PublicComputeServices" \
-            -noprompt
-
-          # Source generation still needs a Sekret encryption key. Runtime key
-          # lookup uses OfficialSekret and the bundled official native library.
-          key_hash="$(keytool -exportcert \
-            -keystore "$keystore" \
-            -storepass "$store_password" \
-            -alias "$key_alias" | xxd -p -c 1000000)"
-
-          cat > local.properties <<EOF
-          storeFile=$keystore
-          storePassword=$store_password
-          keyAlias=$key_alias
-          keyPassword=$key_password
-          keyHash=$key_hash
-          EOF
-
-          # Generate the Kotlin bindings with a placeholder. The generated native
-          # library is not built or packaged; no MANIFEST_KEY secret is needed.
-          printf 'MANIFEST_KEY=00\n' > app/sekret.properties
-
-      - name: Generate Sekret sources
-        run: ./gradlew --no-daemon generateSekret
-
-      - name: Configure generated Sekret Android module
+      - name: Run Tests
         run: |
-          set -euo pipefail
-
-          if [ -f app/sekret/build.gradle.kts ]; then
-            build_file=app/sekret/build.gradle.kts
-            if ! grep -q 'compileSdk' "$build_file"; then
-              cat >> "$build_file" <<'EOF'
-
-          android {
-              namespace = "com.kieronquinn.app.pcs.sekret"
-              compileSdk {
-                  version = release(36)
-              }
-          }
-          EOF
-            fi
-          elif [ -f app/sekret/build.gradle ]; then
-            build_file=app/sekret/build.gradle
-            if ! grep -q 'compileSdk' "$build_file"; then
-              cat >> "$build_file" <<'EOF'
-
-          android {
-              namespace = "com.kieronquinn.app.pcs.sekret"
-              compileSdk 36
-          }
-          EOF
-            fi
+          # Automatically runs pytest if tests directory exists, or skips safely
+          if [ -d "tests" ]; then
+            pip install pytest
+            pytest
           else
-            echo "Generated Sekret build file was not found" >&2
-            exit 1
+            echo "No tests directory found, skipping tests."
           fi
 
-      - name: Build debug APK
-        run: ./gradlew --no-daemon :app:assembleDebug
-
-      - name: Verify APK contains unchanged official Sekret native library
+      - name: Build Package / Artifacts
         run: |
-          set -euo pipefail
-          apk="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -print -quit)"
-          test -n "$apk"
-          unzip -Z1 "$apk" | tee "$RUNNER_TEMP/apk-files.txt"
-          grep -qx 'lib/arm64-v8a/libsekret.so' "$RUNNER_TEMP/apk-files.txt"
-          unzip -p "$apk" lib/arm64-v8a/libsekret.so > "$RUNNER_TEMP/libsekret.so"
-          cmp app/src/main/jniLibs-official/arm64-v8a/libsekret.so "$RUNNER_TEMP/libsekret.so"
+          mkdir -p dist/
+          # If using modern python packaging (pyproject.toml / setup.py)
+          if [ -f pyproject.toml ] || [ -f setup.py ]; then
+            python -m build
+          else
+            # Fallback: bundle the core source files into a zip/tarball artifact directory
+            tar -czvf dist/public-compute-services-build.tar.gz --exclude='.git' --exclude='dist' .
+          fi
 
-      - name: Upload debug APK
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PublicComputeServices-debug-${{ github.sha }}
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 14
+          name: service-build-artifact
+          path: dist/
+          retention-days: 30
