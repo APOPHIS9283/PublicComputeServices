@@ -8,7 +8,7 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.sekret)
     alias(libs.plugins.aboutLibraries)
-    alias(libs.plugins.parcelize}
+    alias(libs.plugins.parcelize)
 }
 
 val tagName = "1.0.6"
@@ -38,7 +38,6 @@ android {
             // Uses default debug keystore automatically
         }
         release {
-            // Minify is enabled but obfuscation is disabled
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -66,7 +65,6 @@ android {
 
     sourceSets {
         getByName("main") {
-            // Only the official sekret binary is packaged, the locally built one is not used
             jniLibs.setSrcDirs(listOf("src/main/jniLibs-official"))
         }
     }
@@ -74,12 +72,10 @@ android {
 
 androidComponents {
     onVariants(selector().withBuildType("release")) { variant ->
-        // x86 + x86_64 are not supported by Private Compute Services so no point including them
         variant.packaging.jniLibs.excludes.add("/lib/x86/*.so")
         variant.packaging.jniLibs.excludes.add("/lib/x86_64/*.so")
     }
     onVariants { variant ->
-        // The official sekret binary is packaged as-is, stripping would alter it
         variant.packaging.jniLibs.keepDebugSymbols.add("**/libsekret.so")
     }
 }
@@ -92,7 +88,6 @@ sekret {
     }
 }
 
-// The packaged sekret binary comes from the official release, don't regenerate or overwrite it
 tasks.matching {
     it.name in listOf(
         "createSekretNativeBinary",
@@ -107,24 +102,20 @@ val grpcVersion = "1.74.0"
 val protobufVersion = "4.32.0"
 protobuf {
     protoc {
-        // protoc compiler
         artifact = "com.google.protobuf:protoc:$protobufVersion"
     }
     plugins {
-        // gRPC Java protoc plugin
         id("grpc") {
             artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion"
         }
     }
     generateProtoTasks {
         all().forEach { task ->
-            // Generate Java (lite) for messages
             task.builtins {
                 create("java") {
                     option("lite")
                 }
             }
-            // Generate Java (lite) for gRPC services
             task.plugins {
                 id("grpc") {
                     option("lite")
