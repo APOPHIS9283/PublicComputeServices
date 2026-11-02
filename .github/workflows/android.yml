@@ -20,9 +20,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Buildozer dependencies (Java, Cython, Android SDK/NDK prerequisites)
       - name: Install System Dependencies
         run: |
+          sudo dpkg --add-architecture i386
           sudo apt-get update
           sudo apt-get install -y \
             python-dev-is-python3 \
@@ -36,7 +36,11 @@ jobs:
             pkg-config \
             ant \
             maven \
-            git
+            git \
+            unzip \
+            libncurses5:i386 \
+            libstdc++6:i386 \
+            libz1:i386
 
       - name: Install Buildozer and Cython
         run: |
@@ -51,7 +55,6 @@ jobs:
 
       - name: Build APK
         run: |
-          # Run buildozer to generate the APK (debug mode)
           buildozer -v android debug
 
       - name: Upload APK Artifact
